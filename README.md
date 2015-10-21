@@ -26,3 +26,10 @@ To use it using a special comment in your code. For example:
 ```
 and run `go generate` in your code directory.
 
+## monitor
+template for monitor pattern
+To use it using a special comment in your code. For example:
+```
+//go:generate gotemplate "github.com/govlas/tempates/monitor" MyMonitor(string)
+```
+and run `go generate` in your code directory.
