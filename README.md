@@ -16,3 +16,13 @@ To use it using a special comment in your code. For example:
 //go:generate gotemplate "github.com/govlas/tempates/amap" MyMap(int,string)
 ```
 and run `go generate` in your code directory.
+
+
+## stack
+template for stack
+To use it using a special comment in your code. For example:
+```
+//go:generate gotemplate "github.com/govlas/tempates/stack" MyStack(string)
+```
+and run `go generate` in your code directory.
+
