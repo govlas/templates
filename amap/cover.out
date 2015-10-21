@@ -1,0 +1,27 @@
+mode: set
+github.com/govlas/amap/amap.go:45.31,49.12 4 1
+github.com/govlas/amap/amap.go:86.2,86.12 1 1
+github.com/govlas/amap/amap.go:49.12,50.33 1 1
+github.com/govlas/amap/amap.go:84.3,84.18 1 1
+github.com/govlas/amap/amap.go:50.33,51.19 1 1
+github.com/govlas/amap/amap.go:52.4,53.44 1 1
+github.com/govlas/amap/amap.go:56.5,56.20 1 1
+github.com/govlas/amap/amap.go:58.4,60.20 2 1
+github.com/govlas/amap/amap.go:62.4,65.19 3 1
+github.com/govlas/amap/amap.go:67.4,69.22 2 1
+github.com/govlas/amap/amap.go:71.4,72.33 1 1
+github.com/govlas/amap/amap.go:75.5,75.20 1 1
+github.com/govlas/amap/amap.go:76.4,77.29 1 1
+github.com/govlas/amap/amap.go:53.44,55.6 1 1
+github.com/govlas/amap/amap.go:72.33,74.6 1 1
+github.com/govlas/amap/amap.go:77.29,78.26 1 1
+github.com/govlas/amap/amap.go:78.26,80.7 1 1
+github.com/govlas/amap/amap.go:89.31,90.15 1 1
+github.com/govlas/amap/amap.go:90.15,91.31 1 1
+github.com/govlas/amap/amap.go:96.37,101.2 4 1
+github.com/govlas/amap/amap.go:103.37,108.2 4 1
+github.com/govlas/amap/amap.go:112.37,117.2 4 1
+github.com/govlas/amap/amap.go:120.44,126.2 4 1
+github.com/govlas/amap/amap.go:129.34,134.2 4 1
+github.com/govlas/amap/amap.go:137.36,142.2 4 1
+github.com/govlas/amap/amap.go:145.25,148.2 2 1
