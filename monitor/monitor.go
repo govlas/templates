@@ -8,15 +8,14 @@ import (
 // template type Monitor(A)
 type A int
 
-type MonitoredObj A
-type AccessFunc func(MonitoredObj)
+type AccessFunc func(A)
 
 type Monitor struct {
 	sync.Mutex
-	obj MonitoredObj
+	obj A
 }
 
-func NewMonitor(obj MonitoredObj) *Monitor {
+func NewMonitor(obj A) *Monitor {
 	ret := new(Monitor)
 	ret.obj = obj
 	runtime.SetFinalizer(ret, func(m *Monitor) {
@@ -25,7 +24,7 @@ func NewMonitor(obj MonitoredObj) *Monitor {
 	return ret
 }
 
-func (m *Monitor) Capture() MonitoredObj {
+func (m *Monitor) Capture() A {
 	m.Lock()
 	return m.obj
 }
