@@ -11,6 +11,7 @@ const (
 	asyncCommandLen
 	asyncCommandList
 	asyncCommandSetPair
+	asyncCommandRelease
 )
 
 type asyncCommand struct {
@@ -79,6 +80,12 @@ func NewAmap(cache int) *Amap {
 						ret.Set(p.First) <- p.Second
 					}
 				}(cmd.pair)
+			case asyncCommandRelease:
+				if value, ok := ret.cache[cmd.key]; ok {
+					cmd.data <- value
+					delete(ret.cache, cmd.key)
+				}
+				close(cmd.data)
 			}
 		}
 		ret.cache = nil
@@ -145,4 +152,13 @@ func (am *Amap) List() <-chan Pair {
 func (am *Amap) Close() {
 	am.closed = true
 	close(am.commands)
+}
+
+// Release return channel to get the value. Value deletes from map.
+// If channel closed then map don't have value by the key.
+func (am *Amap) Release(key K) <-chan V {
+	am.checkClosed()
+	ch := make(chan V, 1)
+	am.commands <- &asyncCommand{data: ch, typ: asyncCommandRelease, key: key}
+	return ch
 }
