@@ -12,6 +12,7 @@ const (
 	asyncCommandList
 	asyncCommandSetPair
 	asyncCommandRelease
+	asyncCommandBatch
 )
 
 type asyncCommand struct {
@@ -19,6 +20,8 @@ type asyncCommand struct {
 	del    chan Empty
 	length chan int
 	pair   chan Pair
+	batch  func(map[K]V)
+	bWait  chan Empty
 
 	typ int
 	key K
@@ -86,6 +89,10 @@ func NewAmap(cache int) *Amap {
 					delete(ret.cache, cmd.key)
 				}
 				close(cmd.data)
+			case asyncCommandBatch:
+				cmd.batch(ret.cache)
+				cmd.bWait <- Empty{}
+				close(cmd.bWait)
 			}
 		}
 		ret.cache = nil
@@ -160,5 +167,12 @@ func (am *Amap) Release(key K) <-chan V {
 	am.checkClosed()
 	ch := make(chan V, 1)
 	am.commands <- &asyncCommand{data: ch, typ: asyncCommandRelease, key: key}
+	return ch
+}
+
+func (am *Amap) Batch(f func(map[K]V)) <-chan Empty {
+	am.checkClosed()
+	ch := make(chan Empty, 1)
+	am.commands <- &asyncCommand{batch: f, bWait: ch, typ: asyncCommandList}
 	return ch
 }
