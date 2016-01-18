@@ -4,27 +4,8 @@ package amap
 type K int
 type V int
 
-const (
-	asyncCommandGet int = iota
-	asyncCommandSet
-	asyncCommandDelete
-	asyncCommandLen
-	asyncCommandList
-	asyncCommandSetPair
-	asyncCommandRelease
-	asyncCommandBatch
-)
-
 type asyncCommand struct {
-	data   chan V
-	del    chan Empty
-	length chan int
-	pair   chan Pair
-	batch  func(map[K]V)
-	bWait  chan Empty
-
-	typ int
-	key K
+	batch func(map[K]V)
 }
 
 // Pair using for key-value operations in AsyncMap
@@ -52,48 +33,7 @@ func NewAmap(cache int) *Amap {
 	ret.commands = make(chan *asyncCommand, cache)
 	go func() {
 		for cmd := range ret.commands {
-			switch cmd.typ {
-			case asyncCommandGet:
-				if value, ok := ret.cache[cmd.key]; ok {
-					cmd.data <- value
-				}
-				close(cmd.data)
-
-			case asyncCommandSet:
-				ret.cache[cmd.key] = <-cmd.data
-				close(cmd.data)
-
-			case asyncCommandDelete:
-				delete(ret.cache, cmd.key)
-				cmd.del <- Empty{}
-				close(cmd.del)
-
-			case asyncCommandLen:
-				cmd.length <- len(ret.cache)
-				close(cmd.length)
-
-			case asyncCommandList:
-				for k, v := range ret.cache {
-					cmd.pair <- Pair{k, v}
-				}
-				close(cmd.pair)
-			case asyncCommandSetPair:
-				go func(pair chan Pair) {
-					for p := range pair {
-						ret.Set(p.First) <- p.Second
-					}
-				}(cmd.pair)
-			case asyncCommandRelease:
-				if value, ok := ret.cache[cmd.key]; ok {
-					cmd.data <- value
-					delete(ret.cache, cmd.key)
-				}
-				close(cmd.data)
-			case asyncCommandBatch:
-				cmd.batch(ret.cache)
-				cmd.bWait <- Empty{}
-				close(cmd.bWait)
-			}
+			cmd.batch(ret.cache)
 		}
 		ret.cache = nil
 	}()
@@ -110,14 +50,24 @@ func (am *Amap) checkClosed() {
 func (am *Amap) Set(key K) chan<- V {
 	am.checkClosed()
 	ch := make(chan V, 1)
-	am.commands <- &asyncCommand{data: ch, typ: asyncCommandSet, key: key}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		m[key] = <-ch
+		close(ch)
+	}}
 	return ch
 }
 
 func (am *Amap) SetPair() chan Pair {
 	am.checkClosed()
 	ch := make(chan Pair)
-	am.commands <- &asyncCommand{pair: ch, typ: asyncCommandSetPair}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		go func(pair chan Pair) {
+			for p := range pair {
+				am.Set(p.First) <- p.Second
+			}
+		}(ch)
+
+	}}
 	return ch
 }
 
@@ -126,7 +76,12 @@ func (am *Amap) SetPair() chan Pair {
 func (am *Amap) Get(key K) <-chan V {
 	am.checkClosed()
 	ch := make(chan V, 1)
-	am.commands <- &asyncCommand{data: ch, typ: asyncCommandGet, key: key}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		if value, ok := m[key]; ok {
+			ch <- value
+		}
+		close(ch)
+	}}
 	return ch
 }
 
@@ -135,7 +90,12 @@ func (am *Amap) Delete(key K) <-chan Empty {
 	am.checkClosed()
 	ch := make(chan Empty, 1)
 
-	am.commands <- &asyncCommand{del: ch, typ: asyncCommandDelete, key: key}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		delete(m, key)
+		ch <- Empty{}
+		close(ch)
+
+	}}
 	return ch
 }
 
@@ -143,7 +103,10 @@ func (am *Amap) Delete(key K) <-chan Empty {
 func (am *Amap) Len() <-chan int {
 	am.checkClosed()
 	ch := make(chan int, 1)
-	am.commands <- &asyncCommand{length: ch, typ: asyncCommandLen}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		ch <- len(m)
+		close(ch)
+	}}
 	return ch
 }
 
@@ -151,7 +114,12 @@ func (am *Amap) Len() <-chan int {
 func (am *Amap) List() <-chan Pair {
 	am.checkClosed()
 	ch := make(chan Pair, <-am.Len())
-	am.commands <- &asyncCommand{pair: ch, typ: asyncCommandList}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		for k, v := range m {
+			ch <- Pair{k, v}
+		}
+		close(ch)
+	}}
 	return ch
 }
 
@@ -166,13 +134,23 @@ func (am *Amap) Close() {
 func (am *Amap) Release(key K) <-chan V {
 	am.checkClosed()
 	ch := make(chan V, 1)
-	am.commands <- &asyncCommand{data: ch, typ: asyncCommandRelease, key: key}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		if value, ok := m[key]; ok {
+			ch <- value
+			delete(m, key)
+		}
+		close(ch)
+	}}
 	return ch
 }
 
 func (am *Amap) Batch(f func(map[K]V)) <-chan Empty {
 	am.checkClosed()
 	ch := make(chan Empty, 1)
-	am.commands <- &asyncCommand{batch: f, bWait: ch, typ: asyncCommandList}
+	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+		f(m)
+		ch <- Empty{}
+		close(ch)
+	}}
 	return ch
 }
