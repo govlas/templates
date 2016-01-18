@@ -4,8 +4,10 @@ package amap
 type K int
 type V int
 
+type MP map[K]V
+
 type asyncCommand struct {
-	batch func(map[K]V)
+	batch func(MP)
 }
 
 // Pair using for key-value operations in AsyncMap
@@ -20,7 +22,7 @@ type Empty struct{}
 // Amap provides asynchronous and thread-safe access to map.
 // All funcs of this class return channels to interact with map.
 type Amap struct {
-	cache    map[K]V
+	cache    MP
 	commands chan *asyncCommand
 	closed   bool
 }
@@ -29,7 +31,7 @@ type Amap struct {
 // cache indicates a size of channel of interim values.
 func NewAmap(cache int) *Amap {
 	ret := new(Amap)
-	ret.cache = make(map[K]V)
+	ret.cache = make(MP)
 	ret.commands = make(chan *asyncCommand, cache)
 	go func() {
 		for cmd := range ret.commands {
@@ -50,7 +52,7 @@ func (am *Amap) checkClosed() {
 func (am *Amap) Set(key K) chan<- V {
 	am.checkClosed()
 	ch := make(chan V, 1)
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		m[key] = <-ch
 		close(ch)
 	}}
@@ -60,7 +62,7 @@ func (am *Amap) Set(key K) chan<- V {
 func (am *Amap) SetPair() chan Pair {
 	am.checkClosed()
 	ch := make(chan Pair)
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		go func(pair chan Pair) {
 			for p := range pair {
 				am.Set(p.First) <- p.Second
@@ -76,7 +78,7 @@ func (am *Amap) SetPair() chan Pair {
 func (am *Amap) Get(key K) <-chan V {
 	am.checkClosed()
 	ch := make(chan V, 1)
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		if value, ok := m[key]; ok {
 			ch <- value
 		}
@@ -90,7 +92,7 @@ func (am *Amap) Delete(key K) <-chan Empty {
 	am.checkClosed()
 	ch := make(chan Empty, 1)
 
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		delete(m, key)
 		ch <- Empty{}
 		close(ch)
@@ -103,7 +105,7 @@ func (am *Amap) Delete(key K) <-chan Empty {
 func (am *Amap) Len() <-chan int {
 	am.checkClosed()
 	ch := make(chan int, 1)
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		ch <- len(m)
 		close(ch)
 	}}
@@ -114,7 +116,7 @@ func (am *Amap) Len() <-chan int {
 func (am *Amap) List() <-chan Pair {
 	am.checkClosed()
 	ch := make(chan Pair, <-am.Len())
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		for k, v := range m {
 			ch <- Pair{k, v}
 		}
@@ -134,7 +136,7 @@ func (am *Amap) Close() {
 func (am *Amap) Release(key K) <-chan V {
 	am.checkClosed()
 	ch := make(chan V, 1)
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		if value, ok := m[key]; ok {
 			ch <- value
 			delete(m, key)
@@ -144,10 +146,10 @@ func (am *Amap) Release(key K) <-chan V {
 	return ch
 }
 
-func (am *Amap) Batch(f func(map[K]V)) <-chan Empty {
+func (am *Amap) Batch(f func(MP)) <-chan Empty {
 	am.checkClosed()
 	ch := make(chan Empty, 1)
-	am.commands <- &asyncCommand{batch: func(m map[K]V) {
+	am.commands <- &asyncCommand{batch: func(m MP) {
 		f(m)
 		ch <- Empty{}
 		close(ch)
