@@ -36,13 +36,16 @@ func releaseElement(a *innerElement) {
 
 type Cache struct {
 	sync.Mutex
-	cache         map[K]*innerElement
-	removeTimeout time.Duration
+	cache          map[K]*innerElement
+	removeTimeout  time.Duration
+	removeCallback func(*V)
 }
 
-func NewCache(rt time.Duration) *Cache {
+func NewCache(rt time.Duration, remCb func(*V)) *Cache {
 	ret := &Cache{
-		cache: make(map[K]*innerElement),
+		cache:          make(map[K]*innerElement),
+		removeTimeout:  rt,
+		removeCallback: remCb,
 	}
 	return ret
 }
@@ -63,7 +66,11 @@ func (cc *Cache) tryRemove(k K) bool {
 	if inner, ok := cc.cache[k]; ok {
 		if time.Now().Sub(inner.lastActivity) >= cc.removeTimeout {
 			delete(cc.cache, k)
+			elem := inner.elem
 			releaseElement(inner)
+			if cc.removeCallback != nil {
+				cc.removeCallback(elem)
+			}
 			return true
 		}
 	}
